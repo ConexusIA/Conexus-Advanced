@@ -1,0 +1,132 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  </head>
+  <body>
+    <div class="flex h-screen">
+      <aside class="w-1/4 bg-card p-6 shadow-lg rounded-xl">
+        <h2 class="text-3xl font-bold text-primary">Conexus IA Advanced</h2>
+        <ul class="mt-6 space-y-4">
+          <li class="py-3 hover:bg-popover cursor-pointer transition duration-200 ease-in-out rounded-lg">Home</li>
+          <li class="py-3 hover:bg-popover cursor-pointer transition duration-200 ease-in-out rounded-lg">Settings</li>
+          <li class="py-3 hover:bg-popover cursor-pointer transition duration-200 ease-in-out rounded-lg">Profile</li>
+        </ul>
+      </aside>
+      <main class="flex-1 p-6 bg-card rounded-xl shadow-lg">
+        <div id="chatContainer" class="flex flex-col space-y-4 h-[80%] overflow-y-auto">
+          <!-- Mensajes aparecerán aquí -->
+        </div>
+        <div class="mt-6 flex">
+          <input
+            id="userMessage"
+            type="text"
+            placeholder="Type your message..."
+            class="flex-1 border border-border rounded-lg p-3 shadow-sm focus:outline-none focus:ring focus:ring-primary transition duration-200 ease-in-out"
+          >
+          <button
+            id="sendButton"
+            class="bg-accent text-accent-foreground hover:bg-accent/80 p-3 rounded-lg ml-2 transition duration-200 ease-in-out shadow-md transform hover:scale-105"
+          >
+            Send
+          </button>
+        </div>
+      </main>
+    </div>
+    <div class="h-32 bg-background"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+    <script type="module">
+  import { GoogleGenerativeAI } from "@google/generative-ai";
+
+  const API_KEY = 'AIzaSyCUfx9JJtH5jKlyiwgNPF4qGDlWg5DYaa8'; // Reemplaza con tu clave de API
+  const genAI = new GoogleGenerativeAI(API_KEY);
+
+  const chatContainer = document.getElementById('chatContainer');
+  const userMessageInput = document.getElementById('userMessage');
+  const sendButton = document.getElementById('sendButton');
+
+  // Memoria para el contexto del chat
+  let memory = [];
+
+  // Prompt predefinido
+  const basePrompt = `Te llamas Conexus AI entrenada por WolfInk. No te presentes a cada rato, no acoses al usuario respondiendo preguntas que no te hacen o sigas respondiéndolas cuando cambiaron de tema. Cambia de lenguaje cuando el usuario lo haga. Usa el formato **(texto)** para negritas, *(texto)* para cursivas, y -(texto)- para texto tachado. Organiza tu respuesta en líneas claras y nunca hagas mensajes muy breves, todos con buena cantidad de texto pero que no sea tan abrumante.`;
+
+  // Función para formatear y organizar el texto en líneas
+  function formatAndOrganizeText(text) {
+    const lines = text.split('\n').filter(line => line.trim() !== ''); // Dividir por líneas no vacías
+    return lines
+      .map(line => formatText(line)) // Aplicar formato a cada línea
+      .join('<br><br>'); // Combinar líneas con doble salto de línea HTML
+  }
+
+  // Función para aplicar formato al texto
+  function formatText(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Negritas
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')             // Cursivas
+      .replace(/-(.*?)\-/g, '<del>$1</del>');           // Tachado
+  }
+
+  async function sendMessage() {
+    const userMessage = userMessageInput.value.trim();
+    if (!userMessage) return;
+
+    // Agregar mensaje del usuario a la derecha
+    const userMessageElement = document.createElement('div');
+    userMessageElement.className = "bg-secondary text-secondary-foreground p-4 rounded-lg shadow-md self-end max-w-[60%] transition-transform transform hover:scale-105";
+    userMessageElement.textContent = userMessage;
+    chatContainer.appendChild(userMessageElement);
+
+    // Agregar mensaje del usuario al contexto de la memoria
+    memory.push(`Usuario: ${userMessage}`);
+
+    // Limpiar caja de texto
+    userMessageInput.value = '';
+
+    // Solicitar respuesta a la IA
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+
+      // Construir el mensaje con memoria
+      const context = memory.join('\n');
+      const prompt = `${basePrompt}\n${context}\nConexus AI:`;
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+
+      // Procesar y organizar texto generado
+      const organizedText = formatAndOrganizeText(response.text());
+
+      // Agregar respuesta de la IA a la izquierda
+      const aiMessageElement = document.createElement('div');
+      aiMessageElement.className = "bg-primary text-primary-foreground p-4 rounded-lg shadow-md self-start max-w-[60%] transition-transform transform hover:scale-105";
+      aiMessageElement.innerHTML = organizedText;
+      chatContainer.appendChild(aiMessageElement);
+
+      // Agregar respuesta al contexto de la memoria
+      memory.push(`Conexus AI: ${response.text()}`);
+
+      // Hacer scroll al final
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    } catch (error) {
+      console.error('Error al generar contenido:', error);
+    }
+  }
+
+  // Enviar mensaje al presionar el botón
+  sendButton.addEventListener('click', sendMessage);
+
+  // Enviar mensaje al presionar Enter
+  userMessageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
+  </body>
+</html>
